@@ -25,44 +25,56 @@ const DashboardPage = () => {
 
                 </div>
 
-                {/* Stats Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                {/* Main Content - Stats Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
                     {/* Credit Balance Card */}
-                    <div className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl shadow-slate-900/10 flex items-center justify-between relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500 rounded-full blur-[60px] opacity-20 -translate-y-10 translate-x-10"></div>
-                        <div className="relative z-10">
-                            <span className="text-slate-400 text-sm font-bold uppercase tracking-wider block mb-1">Available Credits</span>
-                            <span className="text-4xl font-bold">{userData.credits}</span>
+                    <div className="bg-gradient-to-br from-indigo-50 to-white p-6 rounded-2xl shadow-sm border border-indigo-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-shadow">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500 rounded-full blur-[60px] opacity-10 -translate-y-10 translate-x-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 relative z-10 shrink-0">
+                            <Zap size={28} />
                         </div>
-                        <div className="w-14 h-14 bg-orange-500/20 rounded-xl flex items-center justify-center text-orange-400 border border-orange-500/30">
-                            <Zap size={28} className="fill-orange-400" />
-                        </div>
-                    </div>
-
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4">
-                        <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
-                            <TrendingUp size={24} />
-                        </div>
-                        <div>
-                            <span className="block text-2xl font-bold text-slate-900">{userData.stats.calculations}</span>
-                            <span className="text-sm text-slate-500">Calculations Check</span>
+                        <div className="relative z-10 flex-1">
+                            <span className="text-slate-500 text-sm font-bold uppercase tracking-wider block mb-1">Available Credits</span>
+                            <span className="text-3xl font-bold text-slate-900">{userData.credits}</span>
                         </div>
                     </div>
 
-                    <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white cursor-pointer hover:shadow-lg transition-shadow">
-                        <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center text-white">
-                            <Plus size={24} />
+                    {/* Calculations Check Card */}
+                    <div className="bg-gradient-to-br from-emerald-50 to-white p-6 rounded-2xl shadow-sm border border-emerald-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-shadow">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500 rounded-full blur-[60px] opacity-10 -translate-y-10 translate-x-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100 relative z-10 shrink-0">
+                            <CheckCircle2 size={28} />
                         </div>
-                        <div>
-                            <span className="block text-lg font-bold">New Plan</span>
-                            <Link to="/#calculators" className="text-sm text-blue-100 hover:text-white underline">Start Calculating</Link>
+                        <div className="relative z-10 flex-1">
+                            <span className="text-slate-500 text-sm font-bold uppercase tracking-wider block mb-1">Calculations Done</span>
+                            <span className="text-3xl font-bold text-slate-900">{userData.stats.calculations}</span>
                         </div>
                     </div>
+
+                    {/* New Plan Card */}
+                    <Link to="/#calculators" className="bg-gradient-to-br from-purple-50 to-white p-6 rounded-2xl shadow-sm border border-purple-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-shadow hover:-translate-y-0.5 transform">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500 rounded-full blur-[60px] opacity-10 -translate-y-10 translate-x-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-purple-600 shadow-sm border border-purple-100 relative z-10 shrink-0">
+                            <Plus size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                            <span className="block text-lg font-bold text-slate-900 mb-1">New Plan</span>
+                            <span className="text-sm text-purple-600 font-medium hover:underline">Start Calculating</span>
+                        </div>
+                    </Link>
+
+                    {/* Upgrade Plan Card */}
+                    <Link to="/pricing" className="bg-gradient-to-br from-orange-50 to-white p-6 rounded-2xl shadow-sm border border-orange-100 flex items-center gap-4 relative overflow-hidden group hover:shadow-md transition-shadow hover:-translate-y-0.5 transform">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500 rounded-full blur-[60px] opacity-10 -translate-y-10 translate-x-10 group-hover:opacity-20 transition-opacity"></div>
+                        <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center text-orange-600 shadow-sm border border-orange-100 relative z-10 shrink-0">
+                            <Zap size={28} />
+                        </div>
+                        <div className="relative z-10 flex-1">
+                            <span className="block text-lg font-bold text-slate-900 mb-1">Upgrade Plan</span>
+                            <span className="text-sm text-orange-600 font-medium hover:underline">Get More Credits</span>
+                        </div>
+                    </Link>
                 </div>
-
-
-
-
 
                 {/* Recent Activity */}
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden min-h-[300px]">

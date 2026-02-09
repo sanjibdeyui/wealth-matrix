@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, PieChart, Bot, ChevronRight, BarChart3, TrendingUp, Lock, Zap } from 'lucide-react';
+import { useParams, Link, useLocation } from 'react-router-dom';
+import { ArrowLeft, PieChart, Bot, ChevronRight, BarChart3, TrendingUp, Lock, Zap, LogIn, AlertCircle, Volume2, StopCircle } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
+import VoiceDropdown from '../../components/Calculators/VoiceDropdown';
 import { calculators } from '../../data/calculatorConfig';
 import * as calculationUtils from '../../utils/calculations';
 import { formatNumber } from '../../utils/calculations';
 import { useAuth } from '../../context/AuthContext';
-import { useCurrency } from '../../context/CurrencyContext'; // Import Currency
+import { useCurrency } from '../../context/CurrencyContext';
 
 // Register ChartJS
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -26,17 +27,22 @@ const logicMap = {
 
 const CalculatorPage = () => {
     const { id } = useParams();
+    const location = useLocation();
     const config = calculators[id];
     const calculate = logicMap[config?.logicKey];
-    const { saveCalculation, deductCredit, userData, user } = useAuth();
-    const { formatPrice, currency } = useCurrency(); // Use Currency
+    const { saveCalculation, deductCredit, userData, user, loading } = useAuth();
+    const { formatPrice, currency } = useCurrency();
 
     // State
     const [values, setValues] = useState({});
     const [result, setResult] = useState(null);
-    const [isCalculated, setIsCalculated] = useState(false); // New state to control visibility
+    const [isCalculated, setIsCalculated] = useState(false);
+    const [isLocked, setIsLocked] = useState(false);
     const [aiText, setAiText] = useState("");
     const [errorMsg, setErrorMsg] = useState("");
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const [voices, setVoices] = useState([]);
+    const [selectedVoice, setSelectedVoice] = useState(null);
 
     // Initialize defaults when config loads
     useEffect(() => {
@@ -46,35 +52,166 @@ const CalculatorPage = () => {
                 defaults[input.id] = input.default;
             });
             setValues(defaults);
-            setIsCalculated(false); // Reset on tool change
+            setIsCalculated(false);
             setResult(null);
             setErrorMsg("");
+            setIsLocked(false);
         }
     }, [config]);
 
-    // Handle Manual Calculation Trigger
+    // Check for pending calculation after login
+    useEffect(() => {
+        const pendingCalc = localStorage.getItem(`pending_calc_${id}`);
+        if (pendingCalc && user && !loading) {
+            const parsed = JSON.parse(pendingCalc);
+            setValues(parsed.values);
+            setResult(parsed.result);
+            setAiText(parsed.aiText);
+            setIsCalculated(true);
+
+            // Try to deduct credit and unlock
+            if (userData.credits > 0) {
+                deductCredit().then(success => {
+                    if (success) {
+                        setIsLocked(false);
+                        setErrorMsg(""); // Clear any previous errors
+                        localStorage.removeItem(`pending_calc_${id}`);
+
+                        // Save history
+                        let summary = "";
+                        if (parsed.result.total !== undefined) {
+                            if (config.title.includes("Retirement")) {
+                                summary = `${formatPrice(parsed.result.monthly_needed)}/mo needed`;
+                            } else {
+                                summary = `${formatPrice(parsed.result.total)}`;
+                            }
+                        } else {
+                            summary = "Analysis Saved";
+                        }
+                        saveCalculation(config.title, summary);
+                    } else {
+                        setErrorMsg("Failed to deduct credit. Results remain locked.");
+                        setIsLocked(true);
+                    }
+                });
+            } else {
+                // Only show error if we are sure (though initially 0). 
+                // We rely on the re-render when credits load to clear this if successful.
+                setErrorMsg("Insufficient credits to unlock results.");
+                setIsLocked(true);
+            }
+        } else if (pendingCalc && !user) {
+            // Restore locked state for guest
+            const parsed = JSON.parse(pendingCalc);
+            setValues(parsed.values);
+            setResult(parsed.result);
+            setAiText(parsed.aiText);
+            setIsCalculated(true);
+            setIsLocked(true);
+        }
+    }, [user, loading, id, userData.credits]);
+
+    // Cleanup speech on unmount and load voices
+    useEffect(() => {
+        const updateVoices = () => {
+            const availableVoices = window.speechSynthesis.getVoices();
+            setVoices(availableVoices);
+            // Default to first English voice
+            if (!selectedVoice) {
+                const defaultVoice = availableVoices.find(v => v.lang.startsWith('en')) || availableVoices[0];
+                setSelectedVoice(defaultVoice);
+            }
+        };
+
+        updateVoices();
+
+        // Chrome loads voices asynchronously
+        if (window.speechSynthesis.onvoiceschanged !== undefined) {
+            window.speechSynthesis.onvoiceschanged = updateVoices;
+        }
+
+        return () => {
+            window.speechSynthesis.cancel();
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = null;
+            }
+        };
+    }, []);
+
+    const handleSpeak = () => {
+        if ('speechSynthesis' in window) {
+            if (isSpeaking) {
+                window.speechSynthesis.cancel();
+                setIsSpeaking(false);
+            } else {
+                // 1. Clean HTML tags
+                const tempDiv = document.createElement("div");
+                tempDiv.innerHTML = aiText;
+                let cleanText = tempDiv.textContent || tempDiv.innerText || "";
+
+                // 2. Remove Emojis (Range for most emojis)
+                // This regex covers standard emojis, supplementary symbols, etc.
+                cleanText = cleanText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+
+                // 3. Remove specific icons text if any artifact remains (optional)
+                cleanText = cleanText.trim();
+
+                const utterance = new SpeechSynthesisUtterance(cleanText);
+                utterance.onend = () => setIsSpeaking(false);
+                utterance.onerror = () => setIsSpeaking(false);
+
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+                setIsSpeaking(true);
+            }
+        } else {
+            alert("Text-to-Speech not supported in this browser.");
+        }
+    };
+
+    // Handle Calculation
     const handleCalculate = () => {
+        // GUEST MODE
         if (!user) {
-            setErrorMsg("Please login to use the calculator.");
-            return;
-        }
-
-        if (userData.credits <= 0) {
-            setErrorMsg("Out of credits! Please upgrade to continue.");
-            return;
-        }
-
-        if (deductCredit()) {
-            // Deduct success -> Calculate
             if (calculate) {
                 const res = calculate(values);
                 setResult(res);
                 const text = calculationUtils.generateAIInsight(res, values, config.title);
                 setAiText(text);
                 setIsCalculated(true);
+                setIsLocked(true);
                 setErrorMsg("");
 
-                // Save to history automatically
+                // Save pending state
+                localStorage.setItem(`pending_calc_${id}`, JSON.stringify({
+                    values,
+                    result: res,
+                    aiText: text
+                }));
+            }
+            return;
+        }
+
+        // LOGGED IN MODE
+        if (userData.credits <= 0) {
+            setErrorMsg("Out of credits! Please upgrade to continue.");
+            return;
+        }
+
+        if (deductCredit()) {
+            if (calculate) {
+                const res = calculate(values);
+                setResult(res);
+                const text = calculationUtils.generateAIInsight(res, values, config.title);
+                setAiText(text);
+                setIsCalculated(true);
+                setIsLocked(false);
+                setErrorMsg("");
+
+                // Save to history
                 let summary = "";
                 if (res.total !== undefined) {
                     if (config.title.includes("Retirement")) {
@@ -97,11 +234,6 @@ const CalculatorPage = () => {
             ...prev,
             [inputID]: parseFloat(val) || 0
         }));
-        // Optional: Reset calculation if they change inputs? 
-        // For now, let's keep the old result until they click Calculate again (costing another credit? or free re-calc? Requirement implies 1 credit per use)
-        // If we want re-calc to be free after unlock, we'd need session state. 
-        // Assuming strict "1 credit per use" logic as requested: "Deduct 1 credit on every use".
-        // So we won't reset setIsCalculated(false) immediately, but values update doesn't trigger recalc.
     };
 
     if (!config) return <div className="p-20 text-center">Tool not found</div>;
@@ -113,10 +245,10 @@ const CalculatorPage = () => {
             {
                 data: result?.breakdown?.map(item => item.value) || [],
                 backgroundColor: [
-                    'rgba(59, 130, 246, 0.8)', // Blue
-                    'rgba(249, 115, 22, 0.8)', // Orange
-                    'rgba(16, 185, 129, 0.8)', // Emerald
-                    'rgba(139, 92, 246, 0.8)', // Violet
+                    'rgba(59, 130, 246, 0.8)',
+                    'rgba(249, 115, 22, 0.8)',
+                    'rgba(16, 185, 129, 0.8)',
+                    'rgba(139, 92, 246, 0.8)',
                 ],
                 borderColor: [
                     'rgba(59, 130, 246, 1)',
@@ -133,8 +265,8 @@ const CalculatorPage = () => {
         <div className="pt-32 pb-20 min-h-screen bg-slate-50">
             <div className="container mx-auto px-6">
                 {/* Header */}
-                <div className="mb-8 flex justify-between items-end">
-                    <div>
+                <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-end gap-4 md:gap-0">
+                    <div className="w-full md:w-auto">
                         <Link to="/" className="inline-flex items-center text-slate-500 hover:text-blue-600 mb-4 transition-colors">
                             <ArrowLeft size={16} className="mr-2" /> Back to Tools
                         </Link>
@@ -149,7 +281,7 @@ const CalculatorPage = () => {
                         </div>
                     </div>
                     {user && (
-                        <div className="bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm flex items-center gap-2">
+                        <div className="hidden md:flex bg-white px-4 py-2 rounded-full border border-slate-200 shadow-sm items-center gap-2">
                             <Zap size={16} className="text-orange-500 fill-orange-500" />
                             <span className="font-bold text-slate-900">{userData.credits}</span>
                             <span className="text-xs text-slate-500 uppercase font-bold">Credits</span>
@@ -197,13 +329,13 @@ const CalculatorPage = () => {
                         {/* Error Message */}
                         {errorMsg && (
                             <div className="p-4 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-100 flex items-center gap-2">
-                                <Lock size={16} /> {errorMsg}
+                                <AlertCircle size={16} /> {errorMsg}
                             </div>
                         )}
 
-                        {/* Calculate Button (Primary Interaction) */}
+                        {/* Calculate Button */}
                         <div className="bg-slate-900 p-6 rounded-2xl text-white shadow-xl shadow-slate-900/10">
-                            {!isCalculated ? (
+                            {!isCalculated || isLocked ? (
                                 <>
                                     <div className="mb-4 text-center">
                                         <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-400">
@@ -216,7 +348,7 @@ const CalculatorPage = () => {
                                         onClick={handleCalculate}
                                         className="w-full btn-primary"
                                     >
-                                        Calculate Now <span className="px-2 py-0.5 bg-white/20 rounded text-xs">1 Credit</span>
+                                        {isLocked ? "Recalculate (Results Locked)" : "Calculate Now"} <span className="px-2 py-0.5 bg-white/20 rounded text-xs">1 Credit</span>
                                     </button>
                                 </>
                             ) : (
@@ -236,13 +368,34 @@ const CalculatorPage = () => {
                         </div>
                     </div>
 
-                    {/* ANALYSIS SECTION (Locked/Unlocked) */}
-                    <div className="lg:col-span-8">
-                        {isCalculated && result ? (
-                            <div className="space-y-6 animate-fade-in-up">
-                                {/* Charts & Breakdown Row */}
+                    {/* ANALYSIS SECTION */}
+                    <div className="lg:col-span-8 relative">
+                        {/* LOCKED OVERLAY */}
+                        {isCalculated && isLocked && (
+                            <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/60 backdrop-blur-md rounded-3xl border border-slate-200">
+                                <div className="p-8 bg-white rounded-2xl shadow-2xl text-center max-w-sm border border-slate-100">
+                                    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                                        <Lock size={32} />
+                                    </div>
+                                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Results Locked</h3>
+                                    <p className="text-slate-600 mb-6">
+                                        To view the detailed results and AI analysis, you need to login first.
+                                    </p>
+                                    <Link
+                                        to={`/login?redirect=${encodeURIComponent(location.pathname)}`}
+                                        className="w-full btn-primary flex items-center justify-center gap-2"
+                                    >
+                                        <LogIn size={18} /> Login to Unlock
+                                    </Link>
+                                    <p className="text-xs text-slate-400 mt-4">1 credit will be deducted upon unlocking.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Results Content (Blurred if locked) */}
+                        {isCalculated && result && (
+                            <div className={`space-y-6 animate-fade-in-up transition-all ${isLocked ? 'blur-sm opacity-50 pointer-events-none select-none' : ''}`}>
                                 <div className="grid md:grid-cols-2 gap-6">
-                                    {/* Chart Card */}
                                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col items-center justify-center min-h-[300px]">
                                         <h3 className="text-sm font-bold text-slate-900 mb-4 w-full text-left">Visual Breakdown</h3>
                                         <div className="w-64 h-64">
@@ -250,7 +403,6 @@ const CalculatorPage = () => {
                                         </div>
                                     </div>
 
-                                    {/* Data Breakdown Card */}
                                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                         <h3 className="text-sm font-bold text-slate-900 mb-6">Detailed Metrics</h3>
                                         <div className="space-y-4">
@@ -270,31 +422,52 @@ const CalculatorPage = () => {
                                     </div>
                                 </div>
 
-                                {/* AI Insight Card */}
                                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100 relative overflow-hidden">
                                     <div className="absolute top-0 right-0 p-4 opacity-10">
                                         <Bot size={100} className="text-blue-600" />
                                     </div>
-                                    <h3 className="text-lg font-bold text-blue-700 flex items-center gap-2 mb-4">
-                                        <Bot size={20} /> AI Strategy Insight
-                                    </h3>
-                                    <p
+                                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 relative z-10 w-full">
+                                        <h3 className="text-xl font-bold text-blue-700 flex items-center gap-2">
+                                            <Bot size={24} /> AI Strategy Insight
+                                        </h3>
+                                        <div className="w-full sm:w-auto flex items-center gap-2">
+                                            {/* Voice Selector */}
+                                            {!isSpeaking && voices.length > 0 && (
+                                                <VoiceDropdown
+                                                    voices={voices.filter(v => v.lang.startsWith('en'))}
+                                                    selectedVoice={selectedVoice}
+                                                    onChange={setSelectedVoice}
+                                                    disabled={isSpeaking}
+                                                    className="flex-1 sm:flex-none sm:w-48"
+                                                />
+                                            )}
+                                            <button
+                                                onClick={handleSpeak}
+                                                className={`p-2 bg-white/50 hover:bg-white rounded-full text-blue-600 transition-colors border border-blue-200 shadow-sm ${(!isSpeaking && voices.length > 0) ? '' : 'ml-auto'}`}
+                                                title={isSpeaking ? "Stop Speaking" : "Read Aloud"}
+                                            >
+                                                {isSpeaking ? <StopCircle size={20} /> : <Volume2 size={20} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div
                                         className="text-slate-700 leading-relaxed text-lg"
                                         dangerouslySetInnerHTML={{ __html: aiText.replace(/class="highlight"/g, 'class="font-bold text-blue-600"') }}
-                                    ></p>
+                                    ></div>
                                 </div>
                             </div>
-                        ) : (
-                            // Locked State
+                        )}
+
+                        {!isCalculated && (
                             <div className="h-full min-h-[400px] flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-200 border-dashed relative overflow-hidden">
                                 <div className="absolute inset-0 bg-slate-50/50 backdrop-blur-[1px]"></div>
                                 <div className="relative z-10 flex flex-col items-center">
                                     <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6">
-                                        <Lock size={32} className="text-slate-400" />
+                                        <Zap size={32} className="text-slate-400" />
                                     </div>
-                                    <h3 className="text-xl font-bold text-slate-900 mb-2">Results Locked</h3>
+                                    <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to Start?</h3>
                                     <p className="text-slate-500 max-w-md text-center mb-8">
-                                        Configure your values and click "Calculate Now" to unlock the detailed breakdown and AI analysis.
+                                        Configure your values and click "Calculate Now" to see projection.
                                     </p>
                                 </div>
                             </div>

@@ -39,11 +39,14 @@ const Home = () => (
   </>
 );
 
+import ScrollToHash from './components/common/ScrollToHash';
+
 function App() {
   return (
     <AuthProvider>
       <CurrencyProvider>
         <Router>
+          <ScrollToHash />
           <div className="App flex flex-col min-h-screen">
             <Navbar />
 
