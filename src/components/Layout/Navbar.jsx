@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Brain, Menu, X, User, CreditCard, LogOut } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import CurrencySelector from './CurrencySelector';
 import siteLogo from '../../assets/text-logo.png';
@@ -9,6 +9,16 @@ const Navbar = () => {
     const [isOpen, setIsOpen] = useState(false);
     const { user, logout } = useAuth();
     const location = useLocation();
+    const navigate = useNavigate();
+
+    const handleLogout = async () => {
+        try {
+            await logout();
+            navigate('/');
+        } catch (error) {
+            console.error("Failed to log out", error);
+        }
+    };
 
     // Helper to check active state (simple)
     const isActive = (path) => location.pathname === path;
@@ -52,7 +62,7 @@ const Navbar = () => {
                                             <CreditCard size={16} /> Invoices & Billing
                                         </Link>
                                         <div className="h-px bg-slate-100 my-1"></div>
-                                        <button onClick={logout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium w-full text-left">
+                                        <button onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium w-full text-left">
                                             <LogOut size={16} /> Sign Out
                                         </button>
                                     </div>
@@ -95,7 +105,7 @@ const Navbar = () => {
                         <>
                             <Link to="/dashboard" className="text-slate-600 hover:text-primary font-medium py-2 border-b border-slate-100" onClick={() => setIsOpen(false)}>Dashboard</Link>
                             <Link to="/billing" className="text-slate-600 hover:text-primary font-medium py-2 border-b border-slate-100" onClick={() => setIsOpen(false)}>Invoices & Billing</Link>
-                            <button onClick={logout} className="text-left text-red-500 font-medium py-2 border-b border-slate-100 flex items-center gap-2">
+                            <button onClick={handleLogout} className="text-left text-red-500 font-medium py-2 border-b border-slate-100 flex items-center gap-2">
                                 <LogOut size={16} /> Sign Out
                             </button>
                         </>
