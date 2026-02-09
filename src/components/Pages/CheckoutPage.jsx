@@ -63,6 +63,30 @@ const CheckoutPage = () => {
             value = parts.join(' ');
         }
 
+        if (name === 'cvc') {
+            // Remove non-digits
+            value = value.replace(/\D/g, '');
+        }
+
+        if (name === 'zipCode') {
+            const currentCountry = countries.find(c => c.code === formData.country);
+            if (currentCountry) {
+                // Apply formatting if available
+                if (currentCountry.format) {
+                    value = currentCountry.format(value);
+                }
+
+                // Check Max Length
+                if (value.length > currentCountry.maxZipLength) {
+                    return;
+                }
+                // Check Regex
+                if (!currentCountry.zipRegex.test(value)) {
+                    return;
+                }
+            }
+        }
+
         if (name === 'country') {
             setFormData(prev => ({ ...prev, country: value, state: "" })); // Reset state on country change
             return;
@@ -125,6 +149,7 @@ const CheckoutPage = () => {
                 .from('billing_details')
                 .insert({
                     user_id: user.id,
+                    full_name: `${formData.firstName} ${formData.lastName}`.trim(),
                     first_name: formData.firstName,
                     last_name: formData.lastName,
                     address: formData.address,
@@ -304,7 +329,9 @@ const CheckoutPage = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-slate-700 mb-2">Zip Code</label>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                                                    {countries.find(c => c.code === formData.country)?.zipLabel || 'Zip Code'}
+                                                </label>
                                                 <input
                                                     type="text" name="zipCode" required
                                                     value={formData.zipCode} onChange={handleInputChange}
