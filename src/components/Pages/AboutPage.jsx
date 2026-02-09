@@ -16,7 +16,7 @@ const AboutPage = () => {
                 </div>
 
                 {/* Mission Stats */}
-                <div className="grid md://grid-cols-3 gap-8 mb-20">
+                <div className="grid md:grid-cols-3 gap-8 mb-20">
                     <div className="bg-white p-8 rounded-2xl text-center border border-slate-100 shadow-sm">
                         <div className="text-4xl font-bold text-blue-600 mb-2">10k+</div>
                         <div className="text-slate-500 font-medium">Users Helped</div>

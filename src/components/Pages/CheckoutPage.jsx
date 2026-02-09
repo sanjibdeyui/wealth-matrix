@@ -3,7 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { supabase } from '../../lib/supabaseClient';
-import { CreditCard, ShieldCheck, MapPin, User, CheckCircle2, AlertCircle, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
+import { CreditCard, ShieldCheck, MapPin, User, CheckCircle2, AlertCircle, Loader2, ArrowRight, ArrowLeft, ChevronDown } from 'lucide-react';
+import { countries, states } from '../../data/locationData';
 
 const CheckoutPage = () => {
     const { state } = useLocation();
@@ -20,10 +21,13 @@ const CheckoutPage = () => {
 
     // Form State
     const [formData, setFormData] = useState({
-        fullName: user?.user_metadata?.full_name || "",
+        firstName: "",
+        lastName: "",
         address: "",
         city: "",
-        country: "",
+        state: "",
+        zipCode: "",
+        country: "US", // Default to US
         cardName: "",
         cardNumber: "",
         expiry: "",
@@ -46,6 +50,24 @@ const CheckoutPage = () => {
             }
         }
 
+        if (name === 'cardNumber') {
+            // Remove all non-digits
+            const clean = value.replace(/\D/g, '');
+            // Limit to 16 digits
+            const truncated = clean.substring(0, 16);
+            // Add space after every 4 digits
+            const parts = [];
+            for (let i = 0; i < truncated.length; i += 4) {
+                parts.push(truncated.substring(i, i + 4));
+            }
+            value = parts.join(' ');
+        }
+
+        if (name === 'country') {
+            setFormData(prev => ({ ...prev, country: value, state: "" })); // Reset state on country change
+            return;
+        }
+
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -55,7 +77,7 @@ const CheckoutPage = () => {
 
         // Basic Validation Step 1
         if (step === 1) {
-            if (!formData.fullName || !formData.address || !formData.city || !formData.country) {
+            if (!formData.firstName || !formData.lastName || !formData.address || !formData.city || !formData.state || !formData.zipCode || !formData.country) {
                 setError("Please fill in all billing details.");
                 return;
             }
@@ -67,6 +89,28 @@ const CheckoutPage = () => {
         e.preventDefault();
         setError("");
         setIsLoading(true);
+
+        // Expiry Date Validation
+        if (formData.expiry) {
+            const [month, year] = formData.expiry.split('/');
+            if (month && year) {
+                const expiryDate = new Date(2000 + parseInt(year), parseInt(month) - 1); // Month is 0-indexed
+                const now = new Date();
+                // set current date to 1st of the month to ignore day differences if in same month/year?? 
+                // Actually credit cards expire at the end of the month, but let's just check if the month has passed.
+                // A better check:
+                const currentYear = now.getFullYear();
+                const currentMonth = now.getMonth() + 1; // 1-12
+                const expYear = 2000 + parseInt(year);
+                const expMonth = parseInt(month);
+
+                if (expYear < currentYear || (expYear === currentYear && expMonth < currentMonth)) {
+                    setError("Card has expired.");
+                    setIsLoading(false);
+                    return;
+                }
+            }
+        }
 
         // Demo Card Validation
         if (formData.cardNumber.replace(/\s/g, "") !== "4242424242424242") {
@@ -81,9 +125,12 @@ const CheckoutPage = () => {
                 .from('billing_details')
                 .insert({
                     user_id: user.id,
-                    full_name: formData.fullName,
+                    first_name: formData.firstName,
+                    last_name: formData.lastName,
                     address: formData.address,
                     city: formData.city,
+                    state: formData.state,
+                    zip_code: formData.zipCode,
                     country: formData.country,
                     last_4_digits: "4242",
                     plan_purchased: plan.name,
@@ -170,16 +217,30 @@ const CheckoutPage = () => {
                                     </h2>
 
                                     <div className="grid gap-6">
-                                        <div className="group">
-                                            <label className="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
-                                            <div className="relative">
-                                                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
-                                                <input
-                                                    type="text" name="fullName" required
-                                                    value={formData.fullName} onChange={handleInputChange}
-                                                    className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                                                    placeholder="John Doe"
-                                                />
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="group">
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">First Name</label>
+                                                <div className="relative">
+                                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                                                    <input
+                                                        type="text" name="firstName" required
+                                                        value={formData.firstName} onChange={handleInputChange}
+                                                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                                                        placeholder="John"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="group">
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">Last Name</label>
+                                                <div className="relative">
+                                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+                                                    <input
+                                                        type="text" name="lastName" required
+                                                        value={formData.lastName} onChange={handleInputChange}
+                                                        className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
+                                                        placeholder="Doe"
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
 
@@ -198,6 +259,42 @@ const CheckoutPage = () => {
 
                                         <div className="grid grid-cols-2 gap-6">
                                             <div>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">Country</label>
+                                                <div className="relative">
+                                                    <select
+                                                        name="country" required
+                                                        value={formData.country} onChange={handleInputChange}
+                                                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium appearance-none"
+                                                    >
+                                                        <option value="" disabled>Select Country</option>
+                                                        {countries.map(c => (
+                                                            <option key={c.code} value={c.code}>{c.name}</option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">State</label>
+                                                <div className="relative">
+                                                    <select
+                                                        name="state" required
+                                                        value={formData.state} onChange={handleInputChange}
+                                                        disabled={!formData.country}
+                                                        className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium appearance-none disabled:bg-slate-100 disabled:text-slate-400"
+                                                    >
+                                                        <option value="" disabled>Select State</option>
+                                                        {formData.country && states[formData.country]?.map(s => (
+                                                            <option key={s} value={s}>{s}</option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={20} />
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div>
                                                 <label className="block text-sm font-semibold text-slate-700 mb-2">City</label>
                                                 <input
                                                     type="text" name="city" required
@@ -207,12 +304,12 @@ const CheckoutPage = () => {
                                                 />
                                             </div>
                                             <div>
-                                                <label className="block text-sm font-semibold text-slate-700 mb-2">Country</label>
+                                                <label className="block text-sm font-semibold text-slate-700 mb-2">Zip Code</label>
                                                 <input
-                                                    type="text" name="country" required
-                                                    value={formData.country} onChange={handleInputChange}
+                                                    type="text" name="zipCode" required
+                                                    value={formData.zipCode} onChange={handleInputChange}
                                                     className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
-                                                    placeholder="United States"
+                                                    placeholder="10001"
                                                 />
                                             </div>
                                         </div>
@@ -307,7 +404,7 @@ const CheckoutPage = () => {
                                                 <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
                                                 <input
                                                     type="text" name="cardNumber" required
-                                                    maxLength={16}
+                                                    maxLength={19}
                                                     value={formData.cardNumber} onChange={handleInputChange}
                                                     className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium font-mono"
                                                     placeholder="0000 0000 0000 0000"
@@ -329,7 +426,7 @@ const CheckoutPage = () => {
                                             <div>
                                                 <label className="block text-sm font-semibold text-slate-700 mb-2">CVC</label>
                                                 <input
-                                                    type="text" name="cvc" required
+                                                    type="tel" name="cvc" required
                                                     maxLength={3}
                                                     value={formData.cvc} onChange={handleInputChange}
                                                     className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-500/10 outline-none transition-all font-medium"
