@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
-import { ArrowLeft, PieChart, Bot, ChevronRight, BarChart3, TrendingUp, Lock, Zap, LogIn, AlertCircle, Volume2, StopCircle } from 'lucide-react';
+import { ArrowLeft, PieChart, Bot, ChevronRight, BarChart3, TrendingUp, Lock, Zap, LogIn, AlertCircle, Volume2, StopCircle, AudioLines } from 'lucide-react';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import VoiceDropdown from '../../components/Calculators/VoiceDropdown';
@@ -138,27 +138,113 @@ const CalculatorPage = () => {
         };
     }, []);
 
+    const aiContentRef = React.useRef(null);
+    const highlightState = React.useRef({
+        originalHTML: "",
+        currentSpan: null
+    });
+
     const handleSpeak = () => {
         if ('speechSynthesis' in window) {
             if (isSpeaking) {
                 window.speechSynthesis.cancel();
                 setIsSpeaking(false);
+                // Cleanup highlight
+                if (aiContentRef.current && highlightState.current.originalHTML) {
+                    aiContentRef.current.innerHTML = highlightState.current.originalHTML;
+                }
             } else {
-                // 1. Clean HTML tags
-                const tempDiv = document.createElement("div");
-                tempDiv.innerHTML = aiText;
-                let cleanText = tempDiv.textContent || tempDiv.innerText || "";
+                if (!aiContentRef.current) return;
 
-                // 2. Remove Emojis (Range for most emojis)
+                // Save original state
+                highlightState.current.originalHTML = aiContentRef.current.innerHTML;
+
+                // 1. Get raw text content directly from DOM to ensure 1:1 mapping
+                const originalText = aiContentRef.current.textContent;
+
+                // 2. Replace Emojis with spaces of same length to preserve indices
                 // This regex covers standard emojis, supplementary symbols, etc.
-                cleanText = cleanText.replace(/([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g, '');
+                const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
 
-                // 3. Remove specific icons text if any artifact remains (optional)
-                cleanText = cleanText.trim();
+                // We keep the length identical so event.charIndex matches the DOM exactly
+                const cleanText = originalText.replace(emojiRegex, (match) => ' '.repeat(match.length));
 
                 const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.onend = () => setIsSpeaking(false);
-                utterance.onerror = () => setIsSpeaking(false);
+
+                utterance.onboundary = (event) => {
+                    if (event.name === 'word') {
+                        // Remove previous highlight if any (by restoring or unwrapping - unwrapping is faster/smoother)
+                        if (highlightState.current.currentSpan) {
+                            const span = highlightState.current.currentSpan;
+                            const parent = span.parentNode;
+                            if (parent) {
+                                parent.replaceChild(document.createTextNode(span.textContent), span);
+                                parent.normalize(); // Merge text nodes
+                            }
+                            highlightState.current.currentSpan = null;
+                        }
+
+                        const charIndex = event.charIndex;
+                        const charLength = event.charLength; // Modern browsers provide charLength
+
+                        // Filter out whitespace-only highlights
+                        const word = cleanText.substr(charIndex, charLength);
+                        if (!word || word.trim().length === 0) return;
+
+                        // Find DOM node and offset
+                        // This logic traverses the aiContentRef DOM to find the text node matching cleanText index
+                        const findNode = (node, index) => {
+                            if (node.nodeType === 3) { // Text node
+                                const len = node.nodeValue.length;
+                                if (index < len) {
+                                    return { node, offset: index };
+                                }
+                                return { index: index - len };
+                            }
+
+                            for (let i = 0; i < node.childNodes.length; i++) {
+                                const result = findNode(node.childNodes[i], index);
+                                if (result.node) return result;
+                                index = result.index;
+                            }
+                            return { index };
+                        };
+
+                        const startPos = findNode(aiContentRef.current, charIndex);
+
+                        if (startPos.node) {
+                            // We found the start node. Now simple range wrap.
+                            // Note: This simple approach assumes work doesn't span multiple nodes (e.g. bold half a word)
+                            // which is true 99% of time for simple AI text.
+                            const range = document.createRange();
+                            const endOffset = Math.min(startPos.offset + (charLength || 0), startPos.node.length);
+
+                            // Ensure we don't error if length calculation is off
+                            try {
+                                range.setStart(startPos.node, startPos.offset);
+                                range.setEnd(startPos.node, endOffset);
+
+                                const span = document.createElement('span');
+                                span.className = 'bg-blue-200 text-blue-900 rounded px-0.5 transition-colors duration-75';
+                                range.surroundContents(span);
+                                highlightState.current.currentSpan = span;
+                            } catch (e) {
+                                // Ignore framing errors
+                            }
+                        }
+                    }
+                };
+
+                const cleanup = () => {
+                    setIsSpeaking(false);
+                    // Full reset to ensure clean HTML
+                    if (aiContentRef.current && highlightState.current.originalHTML) {
+                        aiContentRef.current.innerHTML = highlightState.current.originalHTML;
+                    }
+                };
+
+                utterance.onend = cleanup;
+                utterance.onerror = cleanup;
 
                 if (selectedVoice) {
                     utterance.voice = selectedVoice;
@@ -429,6 +515,11 @@ const CalculatorPage = () => {
                                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 relative z-10 w-full">
                                         <h3 className="text-xl font-bold text-blue-700 flex items-center gap-2">
                                             <Bot size={24} /> AI Strategy Insight
+                                            {isSpeaking && (
+                                                <span className="hidden md:flex items-center gap-1.5 text-xs font-bold text-blue-600 bg-blue-100 px-3 py-1 rounded-full animate-pulse ml-2">
+                                                    <AudioLines size={14} /> Reading now...
+                                                </span>
+                                            )}
                                         </h3>
                                         <div className="w-full sm:w-auto flex items-center gap-2">
                                             {/* Voice Selector */}
@@ -451,6 +542,7 @@ const CalculatorPage = () => {
                                         </div>
                                     </div>
                                     <div
+                                        ref={aiContentRef}
                                         className="text-slate-700 leading-relaxed text-lg"
                                         dangerouslySetInnerHTML={{ __html: aiText.replace(/class="highlight"/g, 'class="font-bold text-blue-600"') }}
                                     ></div>
