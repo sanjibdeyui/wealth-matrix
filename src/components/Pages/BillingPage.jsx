@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { User, MapPin, Trash2, Edit2, Loader2, AlertCircle, CreditCard, Clock, FileText } from 'lucide-react';
@@ -123,13 +124,13 @@ const BillingPage = () => {
                                         <span className="text-xs text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded uppercase tracking-wide">Paid</span>
                                     </div>
                                     <div className="flex items-center gap-2 pl-6 border-l border-slate-100">
-                                        <a
-                                            href={`/invoice/${item.id}`}
+                                        <Link
+                                            to={`/invoice/${item.id}`}
                                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                                             title="View Invoice"
                                         >
                                             <FileText size={18} />
-                                        </a>
+                                        </Link>
                                         <button
                                             onClick={() => handleEditAddress(item.id, item.address)}
                                             className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"

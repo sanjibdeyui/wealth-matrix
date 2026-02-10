@@ -134,7 +134,7 @@ const InvoicePage = () => {
                             <div>
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Status</h3>
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                    Paid
+                                    {invoice.status || 'Paid'}
                                 </span>
                             </div>
                             <div>
