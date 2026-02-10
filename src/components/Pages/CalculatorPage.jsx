@@ -313,13 +313,13 @@ const CalculatorPage = () => {
                                         <div className="mt-2 flex items-center justify-between">
                                             <input
                                                 type="number"
-                                                className="w-24 px-3 py-1 bg-slate-50 border border-slate-200 rounded text-sm font-medium focus:outline-none focus:border-blue-400"
+                                                className="w-28 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full text-sm font-bold text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white transition-all shadow-sm"
                                                 min={input.min}
                                                 max={input.max}
                                                 value={values[input.id] || 0}
                                                 onChange={(e) => handleChange(input.id, e.target.value)}
                                             />
-                                            <span className="text-xs text-slate-400">Min: {input.min}</span>
+                                            <span className="text-xs text-slate-400 font-medium">Min: {input.min}</span>
                                         </div>
                                     </div>
                                 ))}

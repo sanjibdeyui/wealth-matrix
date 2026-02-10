@@ -81,23 +81,23 @@ const CalculatorModal = ({ toolKey, onClose }) => {
 
                     <div className="space-y-8">
                         {config.inputs.map(input => (
-                            <div key={input.id} className="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-100 transition-colors focus-within:border-blue-300 focus-within:bg-blue-50/30">
-                                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">{input.label}</label>
+                            <div key={input.id} className="space-y-5 p-7 bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-md transition-all hover:shadow-lg focus-within:ring-4 focus-within:ring-blue-50 focus-within:border-blue-400">
+                                <label className="text-base font-bold text-slate-500 uppercase tracking-wider block ml-1">{input.label}</label>
 
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 px-2">
                                     <input
                                         type="number"
-                                        className="w-full bg-transparent text-2xl font-bold text-slate-800 outline-none font-sans"
+                                        className="w-full bg-transparent text-4xl lg:text-5xl font-bold text-slate-900 outline-none font-sans placeholder-slate-300"
                                         value={values[input.id]}
                                         onChange={(e) => handleChange(input.id, e.target.value)}
                                         min={input.min}
                                         max={input.max}
                                     />
-                                    <span className="text-slate-400 font-medium">{input.unit}</span>
+                                    <span className="text-slate-400 font-medium text-xl">{input.unit}</span>
                                 </div>
                                 <input
                                     type="range"
-                                    className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                                    className="w-full h-3 bg-slate-100 rounded-full appearance-none cursor-pointer accent-blue-600 hover:accent-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-200"
                                     value={values[input.id]}
                                     onChange={(e) => handleChange(input.id, e.target.value)}
                                     min={input.min}
