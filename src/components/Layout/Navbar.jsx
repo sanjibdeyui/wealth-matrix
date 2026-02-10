@@ -32,7 +32,7 @@ const Navbar = () => {
                 </Link>
 
                 {/* Desktop Links */}
-                <ul className="hidden md:flex items-center gap-1 bg-slate-100/50 px-1 py-1 rounded-full border border-slate-200/50">
+                <ul className="hidden lg:flex items-center gap-1 bg-slate-100/50 px-1 py-1 rounded-full border border-slate-200/50">
                     <li><Link to="/" className="text-sm font-semibold text-slate-600 hover:text-primary hover:bg-white px-5 py-2 rounded-full transition-all">Home</Link></li>
                     <li><a href="/#calculators" className="text-sm font-semibold text-slate-600 hover:text-primary hover:bg-white px-5 py-2 rounded-full transition-all">Tools</a></li>
                     <li><Link to="/features" className="text-sm font-semibold text-slate-600 hover:text-primary hover:bg-white px-5 py-2 rounded-full transition-all">Features</Link></li>
@@ -43,8 +43,8 @@ const Navbar = () => {
                 {/* Actions */}
                 <div className="flex items-center gap-4">
                     {user ? (
-                        <div className="hidden md:flex items-center gap-4 relative">
-                            <span className="text-sm font-bold text-slate-700 hidden lg:block">Hi, {user.user_metadata?.full_name?.split(' ')[0] || user.email.split('@')[0]}</span>
+                        <div className="hidden lg:flex items-center gap-4 relative">
+                            <span className="text-sm font-bold text-slate-700 hidden xl:block">Hi, {user.user_metadata?.full_name?.split(' ')[0] || user.email.split('@')[0]}</span>
 
                             {/* User Dropdown */}
                             <div className="relative group">
@@ -70,7 +70,7 @@ const Navbar = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className="hidden md:flex items-center gap-2">
+                        <div className="hidden lg:flex items-center gap-2">
                             <Link to="/login" className="text-sm font-bold text-slate-600 hover:text-slate-900 px-4 py-2">Log In</Link>
                             <Link to="/register" className="btn-primary text-sm px-5 py-2">
                                 Get Started
@@ -79,12 +79,10 @@ const Navbar = () => {
                     )}
 
                     {/* Mobile Toggle */}
-                    <div className="hidden md:block">
-                        <CurrencySelector />
-                    </div>
+                    <CurrencySelector />
 
                     <button
-                        className="md:hidden p-2 text-slate-600 hover:text-slate-900"
+                        className="lg:hidden p-2 text-slate-600 hover:text-slate-900"
                         onClick={() => setIsOpen(!isOpen)}
                     >
                         {isOpen ? <X /> : <Menu />}
@@ -94,7 +92,7 @@ const Navbar = () => {
 
             {/* Mobile Menu */}
             {isOpen && (
-                <div className="absolute top-full mt-4 w-[90%] bg-white border border-slate-100 rounded-2xl p-6 flex flex-col gap-4 shadow-xl md:hidden">
+                <div className="absolute top-full mt-4 w-[90%] bg-white border border-slate-100 rounded-2xl p-6 flex flex-col gap-4 shadow-xl lg:hidden">
                     <Link to="/" className="text-slate-600 hover:text-primary font-medium py-2 border-b border-slate-100" onClick={() => setIsOpen(false)}>Home</Link>
                     <a href="/#calculators" className="text-slate-600 hover:text-primary font-medium py-2 border-b border-slate-100" onClick={() => setIsOpen(false)}>Tools</a>
                     <Link to="/features" className="text-slate-600 hover:text-primary font-medium py-2 border-b border-slate-100" onClick={() => setIsOpen(false)}>Features</Link>
